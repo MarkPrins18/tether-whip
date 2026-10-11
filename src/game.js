@@ -157,9 +157,10 @@ function burst(g, x, y, col, n, spd) {
 function floaty(g, txt, x, y, col) { g.fl.push({ t: txt, x, y, l: 0.9, m: 0.9, c: col }); }
 
 // ---- input ----
-export function press(g) {
+// side: -1 = left half of the screen (swing clockwise, fly left), 1 = right half (counterclockwise, fly right).
+export function press(g, side) {
   if (g.dead) return;
-  g.down = true;
+  g.down = true; g.side = side || 0;
   if (!g.vhold) tryAttach(g);
 }
 export function release(g) {
@@ -179,7 +180,12 @@ function tryAttach(g) {
   const vn = p.vx * nx + p.vy * ny;
   let tx = p.vx - nx * vn, ty = p.vy - ny * vn;
   let sp = Math.hypot(tx, ty);
-  if (sp < 1) { tx = -ny; ty = nx; if (ty > 0) { tx = -tx; ty = -ty; } sp = 1; }
+  if (g.side) {
+    // Player picks the spin: left = clockwise, right = counterclockwise (screen coordinates, y down).
+    const sx = g.side < 0 ? -ny : ny, sy = g.side < 0 ? nx : -nx;
+    sp = Math.max(sp, Math.hypot(p.vx, p.vy) * 0.6);
+    tx = sx * sp; ty = sy * sp;
+  } else if (sp < 1) { tx = -ny; ty = nx; if (ty > 0) { tx = -tx; ty = -ty; } sp = 1; }
   const s = clamp(Math.max(sp, MINV), MINV, VROPE);
   p.vx = (tx / sp) * s; p.vy = (ty / sp) * s;
   g.rope = a; g.L = Math.max(MINL, d);

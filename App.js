@@ -298,7 +298,7 @@ function Game() {
       const sv = saveRef.current;
       let hint = '';
       if (g.hint === 0) hint = 'Release to fly';
-      else if (g.hint === 1) hint = 'Hold to grab the next anchor';
+      else if (g.hint === 1) hint = 'Hold left or right to grab the next anchor';
       else if (sv.runs < 3 && g.rope && g.next && g.stats.perfects === 0 && g.flights >= 1) hint = 'Release when the line turns green';
       return {
         score: scoreOf(g), alt: Math.floor(heightM(g)), coins: Math.floor(g.coinsRun), combo: g.combo, mult: multOf(g), cbar: g.comboT / COMBO_T,
@@ -311,7 +311,7 @@ function Game() {
   }, [ready]);
 
   /* ---------- touch ---------- */
-  const onDown = () => { if (modeRef.current === 'play' && gRef.current) { downRef.current = true; press(gRef.current); } };
+  const onDown = (e) => { if (modeRef.current === 'play' && gRef.current) { downRef.current = true; press(gRef.current, e && e.nativeEvent && e.nativeEvent.pageX < dimsRef.current.w / 2 ? -1 : 1); } };
   const onUp = (e) => {
     if (modeRef.current !== 'play' || !gRef.current || !downRef.current) return;
     const left = e && e.nativeEvent && e.nativeEvent.touches ? e.nativeEvent.touches.length : 0;
