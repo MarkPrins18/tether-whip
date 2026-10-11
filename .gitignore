@@ -3,5 +3,6 @@ node_modules/
 dist/
 android/
 ios/
+web/
 *.log
 .DS_Store

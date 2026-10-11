@@ -1,16 +1,22 @@
-name: Build Android APK
+name: Build Android
 
 on:
   push:
     branches: [main]
+    paths-ignore: ['docs/**', 'store/**', '*.md']
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -26,19 +32,38 @@ jobs:
 
       - run: npm ci
 
+      - name: Prepare upload key (only when you created one)
+        env:
+          SIGNING_PASSPHRASE: ${{ secrets.SIGNING_PASSPHRASE }}
+        run: |
+          if [ -n "$SIGNING_PASSPHRASE" ] && [ -f signing/upload.enc ]; then
+            bash tools/signing/decrypt.sh
+            echo "SIGNED=true" >> "$GITHUB_ENV"
+          else
+            echo "SIGNED=false" >> "$GITHUB_ENV"
+            echo "No upload key found. Building with the debug key (fine for testing, not for the Play Store)."
+          fi
+
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
 
-      - name: Build release APK
+      - name: Build release APK and AAB
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
 
-      - name: Publish APK as a GitHub release
+      - name: Publish release files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk tether-whip.apk
-          gh release create "build-${{ github.run_number }}" tether-whip.apk \
-            --title "Tether Whip build ${{ github.run_number }}" \
-            --notes "Download tether-whip.apk on your Android phone and open it to install." \
-            --prerelease
+          N="${{ github.run_number }}"
+          cp android/app/build/outputs/apk/release/app-release.apk "tether-whip-$N.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "tether-whip-$N.aab"
+          if [ "$SIGNED" = "true" ]; then
+            NOTES="Signed with your upload key. versionCode $N. Upload the .aab to the Play Console. Install the .apk on your own phone to test."
+            FLAG=""
+          else
+            NOTES="Debug-signed test build. versionCode $N. Install the .apk on your phone. Not accepted by the Play Store until you create an upload key."
+            FLAG="--prerelease"
+          fi
+          gh release create "build-$N" "tether-whip-$N.apk" "tether-whip-$N.aab" \
+            --title "Tether Whip build $N" --notes "$NOTES" $FLAG
