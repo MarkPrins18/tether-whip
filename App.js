@@ -1,12 +1,10 @@
 import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Canvas, Picture, Skia, createPicture } from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { UPS, W, createGame, heightM, multOf, press, release, revive, scoreOf, tick, upCost, COMBO_T } from './src/game';
-import { drawScene } from './src/render';
 import { dailyInfo, loadSave, persistSave } from './src/storage';
 import { Ads, setDemoAdUI } from './src/ads';
 
@@ -53,16 +51,6 @@ function Screen({ children, scroll }) {
 }
 
 /* ---------- Scene (canvas) and HUD, updated by the game loop through refs ---------- */
-const Scene = memo(forwardRef(function Scene(_, ref) {
-  const [pic, setPic] = useState(null);
-  useImperativeHandle(ref, () => ({ setPic }), []);
-  return (
-    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-      {pic ? <Picture picture={pic} /> : null}
-    </Canvas>
-  );
-}));
-
 const Hud = memo(forwardRef(function Hud(_, ref) {
   const insets = useSafeAreaInsets();
   const [d, setD] = useState({ score: 0, alt: 0, coins: 0, combo: 0, mult: 1, cbar: 0, hint: '' });
@@ -259,6 +247,8 @@ function Game() {
   const overRef = useRef(null);
 
   const gRef = useRef(null), modeRef = useRef('menu'), saveRef = useRef(null);
+  const [SceneComp, setSceneComp] = useState(null);
+  const sceneMod = useRef(null);
   const sceneRef = useRef(null), hudRef = useRef(null), dimsRef = useRef(null);
   const runsSinceAd = useRef(0), lastAdAt = useRef(Date.now()), lastSel = useRef(0);
 
@@ -293,7 +283,14 @@ function Game() {
   const adDue = () => runsSinceAd.current >= 3 && Date.now() - lastAdAt.current > 75000;
 
   /* flow */
+  const ensureScene = () => {
+    if (!sceneMod.current) {
+      sceneMod.current = require('./src/Scene').default;
+      setSceneComp(() => sceneMod.current);
+    }
+  };
   const startRun = () => {
+    ensureScene();
     newGame();
     const g = gRef.current;
     g.hint = saveRef.current.runs >= 2 ? 2 : 0;
@@ -347,6 +344,7 @@ function Game() {
     let raf, last = 0, frame = 0;
     const loop = (ts) => {
       raf = requestAnimationFrame(loop);
+      try {
       const now = ts / 1000;
       if (!last) { last = now; return; }
       const dt = now - last; last = now;
@@ -366,10 +364,7 @@ function Game() {
       if (mode === 'play' && g.dead) { modeRef.current = 'dying'; mode = 'dying'; }
       if (mode === 'dying' && g.deadT > 0.9) { modeRef.current = 'wait'; afterDeath(); }
 
-      if (sceneRef.current) {
-        const pic = createPicture((c) => drawScene(c, g, dims.w, dims.h, false), Skia.XYWHRect(0, 0, dims.w, dims.h));
-        sceneRef.current.setPic(pic);
-      }
+      if (sceneRef.current) sceneRef.current.draw(g, dims.w, dims.h);
       if (hudRef.current && (modeRef.current === 'play' || modeRef.current === 'dying') && frame++ % 2 === 0) {
         const sv = saveRef.current;
         hudRef.current.set({
@@ -378,6 +373,7 @@ function Game() {
           hint: sv.runs >= 2 || g.hint >= 2 ? '' : g.hint === 0 ? 'TAP TO LET GO' : 'HOLD TO GRAB THE NEXT ANCHOR',
         });
       }
+      } catch (e) { cancelAnimationFrame(raf); throw e; }
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
@@ -398,7 +394,7 @@ function Game() {
       onLayout={(e) => { const { width, height } = e.nativeEvent.layout; if (width > 0 && height > 0) { const d = { w: width, h: height }; dimsRef.current = d; setDims(d); } }}
     >
       <StatusBar style="light" />
-      <Scene ref={sceneRef} />
+      {SceneComp ? <SceneComp ref={sceneRef} /> : null}
       <View style={StyleSheet.absoluteFill} onTouchStart={onDown} onTouchEnd={onUp} onTouchCancel={onUp} />
       {screen === null ? <Hud ref={hudRef} /> : null}
       {save && screen === 'menu' ? <Menu save={save} onPlay={startRun} onShop={() => { setShopFrom('menu'); setScreen('shop'); }} onClaim={claim} /> : null}
