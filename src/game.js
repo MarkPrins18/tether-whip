@@ -181,9 +181,12 @@ function tryAttach(g) {
   let tx = p.vx - nx * vn, ty = p.vy - ny * vn;
   let sp = Math.hypot(tx, ty);
   if (g.side) {
-    // Player picks the spin: left = clockwise, right = counterclockwise (screen coordinates, y down).
-    const sx = g.side < 0 ? -ny : ny, sy = g.side < 0 ? nx : -nx;
-    sp = Math.max(sp, Math.hypot(p.vx, p.vy) * 0.6);
+    // Player picks the fly direction: left tap = spin so you move left, right tap = move right.
+    // Clockwise tangent is (-ny, nx), counterclockwise is (ny, -nx). Prefer the one that moves toward the tapped
+    // side, with a small bias for upward movement when the player sits level with the anchor.
+    const cw = g.side * -ny - 0.35 * nx, ccw = g.side * ny + 0.35 * nx;
+    const sx = cw >= ccw ? -ny : ny, sy = cw >= ccw ? nx : -nx;
+    sp = Math.max(sp, Math.hypot(p.vx, p.vy) * 0.6, 1);
     tx = sx * sp; ty = sy * sp;
   } else if (sp < 1) { tx = -ny; ty = nx; if (ty > 0) { tx = -tx; ty = -ty; } sp = 1; }
   const s = clamp(Math.max(sp, MINV), MINV, VROPE);

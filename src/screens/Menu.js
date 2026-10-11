@@ -85,7 +85,7 @@ const m = StyleSheet.create({
 
 /* ---------- How to play ---------- */
 const STEPS = [
-  { title: 'Hold to swing', text: 'Press and hold to grab the nearest anchor. Hold on the left side to spin clockwise and fly left. Hold on the right side to spin counterclockwise and fly right.' },
+  { title: 'Hold to swing', text: 'Press and hold to grab the nearest anchor. Hold on the left side to swing and fly left. Hold on the right side to swing and fly right.' },
   { title: 'Release to fly', text: 'Let go to launch. When the guide line turns green, release for a PERFECT boost.' },
   { title: 'Collect, dodge, climb', text: 'Chain orbs for a bigger multiplier. Avoid mines. Never let the void catch you.' },
 ];
